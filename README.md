@@ -28,6 +28,7 @@ php /path/to/convert_to_mp4.php
 |---|---|
 | `--dry-run` | Preview what would happen without converting |
 | `--keep` | Keep original files after successful conversion |
+| `--recursive` | Recurse into subdirectories (skips hidden dirs like `.git`/`.Trash`) |
 | `--bitrate=NNNk` | AAC audio bitrate cap (default: `256k`) |
 | `--audio=aac\|alac` | Audio transcode codec (default: `aac`) |
 | `--preset=NAME` | x264 preset (default: `medium`) |
@@ -55,7 +56,7 @@ php /path/to/convert_to_mp4.php
 
 ## How It Works
 
-1. Scans the current directory for supported video files
+1. Scans the current directory for supported video files (or the full tree with `--recursive`)
 2. Probes each file with ffprobe for codec, resolution, and duration
 3. Runs a multi-point decode check to catch corruption early
 4. Optionally checks for junk/static video (entropy + luma analysis)

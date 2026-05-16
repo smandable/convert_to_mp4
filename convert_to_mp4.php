@@ -1462,11 +1462,12 @@ function usage(): void
     $script = basename(__FILE__);
     echo <<<TXT
 Usage:
-  php $script [--dry-run] [--keep] [--bitrate=256k] [--audio=aac|alac] [--preset=NAME]
+  php $script [--dry-run] [--keep] [--recursive] [--bitrate=256k] [--audio=aac|alac] [--preset=NAME]
 
 Options:
   --dry-run            Print what would happen, but don't run ffmpeg or delete anything
   --keep               Keep original source files (do not delete after successful conversion)
+  --recursive          Recurse into subdirectories (hidden dirs like .git/.Trash are skipped)
   --bitrate=NNNk       AAC bitrate when audio must be converted (default: 256k)
   --audio=aac|alac     Audio transcode codec when needed: AAC (lossy) or ALAC (lossless). Default: aac
   --preset=NAME        x264 preset when re-encoding (default: medium)
@@ -1485,7 +1486,7 @@ Options:
   --help               Show this help
 
 Notes:
-  - Processes: .mkv .wmv .mov .avi .m4v .mpg .mpeg .vob .webm .flv .ts .m2ts (current directory only)
+  - Processes: .mkv .wmv .mov .avi .m4v .mpg .mpeg .vob .webm .flv .ts .m2ts (current directory only; use --recursive to descend into subdirectories)
   - Subtitles are discarded.
   - Video is copied when MP4-compatible; otherwise video is re-encoded via libx264 with a bitrate target (capped by --max-grow-mb).
 
@@ -1535,6 +1536,7 @@ $options = getopt('', [
     'junk-timeout:',
     'ffmpeg-timeout-min:',
     'verbose-errors',
+    'recursive',
     'help'
 ]);
 
@@ -1551,6 +1553,7 @@ if (isset($options['help'])) {
  */
 $dryRun = isset($options['dry-run']);
 $keep   = isset($options['keep']);
+$recursive = isset($options['recursive']);
 
 $deintMode = strtolower((string)($options['deint'] ?? $DEFAULTS['deint'])); // auto|on|off
 
@@ -1667,9 +1670,22 @@ $exts = ['mkv', 'wmv', 'mov', 'avi', 'm4v', 'mpg', 'mpeg', 'vob', 'webm', 'flv',
 // Only run idet on containers that commonly carry interlaced sources
 $idetExts = ['wmv', 'mpg', 'mpeg', 'avi', 'ts', 'm2ts', 'vob'];
 
-// Collect target files (non-recursive)
+// Collect target files
+if ($recursive) {
+    $baseIter = new RecursiveDirectoryIterator($cwd, FilesystemIterator::SKIP_DOTS);
+    // Skip hidden directories (.git, .Trash, .cache, etc.)
+    $filtered = new RecursiveCallbackFilterIterator($baseIter, function ($current): bool {
+        if ($current->isDir() && str_starts_with($current->getFilename(), '.')) {
+            return false;
+        }
+        return true;
+    });
+    $iter = new RecursiveIteratorIterator($filtered);
+} else {
+    $iter = new DirectoryIterator($cwd);
+}
 $files = [];
-foreach (new DirectoryIterator($cwd) as $fi) {
+foreach ($iter as $fi) {
     if (!$fi->isFile()) continue;
     $ext = strtolower($fi->getExtension());
     if (in_array($ext, $exts, true)) $files[] = $fi->getPathname();
@@ -1695,7 +1711,7 @@ foreach ($files as $i => $inputPath) {
     $inName = basename($inputPath);
     $inExt = strtolower(pathinfo($inputPath, PATHINFO_EXTENSION));
     $base = pathinfo($inputPath, PATHINFO_FILENAME);
-    $outPath = $cwd . DIRECTORY_SEPARATOR . $base . '.mp4';
+    $outPath = dirname($inputPath) . DIRECTORY_SEPARATOR . $base . '.mp4';
     $outName = basename($outPath);
 
     if ($i > 0) echo PHP_EOL; // one blank line between files
