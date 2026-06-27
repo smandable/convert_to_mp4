@@ -72,3 +72,7 @@ Corrupt or junk files are moved to a `_corrupt` subdirectory rather than deleted
 
 - PHP 8.0+
 - [FFmpeg](https://ffmpeg.org/) (`ffmpeg` and `ffprobe` must be on your PATH)
+
+## License
+
+MIT
